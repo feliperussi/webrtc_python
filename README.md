@@ -1,5 +1,3 @@
-Here is a `README.md` file with detailed instructions for setting up the environment and running the project both with Docker and in a virtual environment.
-
 # WebRTC Webcam Demo
 
 This project is a WebRTC webcam demo that uses `aiortc`, `aiohttp`, and `opencv-python-headless` to stream video from a webcam.
