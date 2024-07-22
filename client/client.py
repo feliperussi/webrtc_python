@@ -14,8 +14,9 @@ async def main():
             async def read_track():
                 while True:
                     frame = await track.recv()
-                    img = frame.to_ndarray(format="bgr24")
-                    cv2.imshow("Webcam", img)
+                    img = frame.to_ndarray(format="rgb24")
+                    img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+                    cv2.imshow("Webcam", img_bgr)
                     if cv2.waitKey(1) & 0xFF == ord('q'):
                         break
             asyncio.create_task(read_track())
@@ -33,7 +34,7 @@ async def main():
             "type": pc.localDescription.type
         }
         print("Sending payload:", payload)
-        async with session.post("http://localhost:8080/offer", json=payload) as response:
+        async with session.post("http://192.168.0.110:8080/offer", json=payload) as response:
             if response.headers['Content-Type'].startswith('application/json'):
                 answer = await response.json()
                 print("Received answer:", answer)
