@@ -15,20 +15,24 @@ from aiortc.contrib.media import MediaPlayer, MediaRelay
 ROOT = os.path.dirname(__file__)
 relay = None
 webcam = None
+microphone = None
 
 def create_local_tracks():
-    global relay, webcam
+    global relay, webcam, microphone
 
     options = {"framerate": "30", "video_size": "640x480", "pixel_format": "uyvy422"}
     if relay is None:
         if platform.system() == "Darwin":
             webcam = MediaPlayer("default:none", format="avfoundation", options=options)
-        elif platform.system() == "Windows":
+            microphone = MediaPlayer(":1", format="avfoundation")
+        elif platform.system() == "Linux":
             webcam = MediaPlayer("video=Integrated Camera", format="dshow", options=options)
+            microphone = MediaPlayer("audio=Microphone", format="dshow")
         else:
             webcam = MediaPlayer("/dev/video0", format="v4l2", options=options)
+            microphone = MediaPlayer("default", format="alsa")
         relay = MediaRelay()
-    return None, relay.subscribe(webcam.video)
+    return relay.subscribe(microphone.audio), relay.subscribe(webcam.video)
 
 async def index(request):
     content = open(os.path.join(ROOT, "index.html"), "r").read()
@@ -60,6 +64,8 @@ async def offer(request):
         for t in pc.getTransceivers():
             if t.kind == "video" and video:
                 pc.addTrack(video)
+            elif t.kind == "audio" and audio:
+                pc.addTrack(audio)
 
         answer = await pc.createAnswer()
         await pc.setLocalDescription(answer)

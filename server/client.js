@@ -1,6 +1,7 @@
 var pc = null;
 
 function negotiate() {
+    pc.addTransceiver('audio', { direction: 'recvonly' });
     pc.addTransceiver('video', { direction: 'recvonly' });
     return pc.createOffer().then(function (offer) {
         return pc.setLocalDescription(offer);
@@ -52,6 +53,8 @@ function start() {
     pc.addEventListener('track', function (evt) {
         if (evt.track.kind == 'video') {
             document.getElementById('video').srcObject = evt.streams[0];
+        } else if (evt.track.kind == 'audio') {
+            document.getElementById('audio').srcObject = evt.streams[0];
         }
     });
 

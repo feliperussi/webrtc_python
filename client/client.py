@@ -34,7 +34,7 @@ async def main():
             "type": pc.localDescription.type
         }
         print("Sending payload:", payload)
-        async with session.post("http://192.168.0.110:8080/offer", json=payload) as response:
+        async with session.post("http://192.168.0.107:8080/offer", json=payload) as response:
             if response.headers['Content-Type'].startswith('application/json'):
                 answer = await response.json()
                 print("Received answer:", answer)
