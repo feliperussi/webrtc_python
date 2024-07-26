@@ -18,21 +18,22 @@ webcam = None
 microphone = None
 
 def create_local_tracks():
-    global relay, webcam, microphone
+    global relay, webcam
 
-    options = {"framerate": "30", "video_size": "640x480", "pixel_format": "uyvy422"}
+    options = {'framerate': '30', 'video_size': '640x480', 'pixel_format': 'uyvy422'}
     if relay is None:
-        if platform.system() == "Darwin":
-            webcam = MediaPlayer("default:none", format="avfoundation", options=options)
-            microphone = MediaPlayer(":1", format="avfoundation")
-        elif platform.system() == "Linux":
-            webcam = MediaPlayer("video=Integrated Camera", format="dshow", options=options)
-            microphone = MediaPlayer("audio=Microphone", format="dshow")
-        else:
-            webcam = MediaPlayer("/dev/video0", format="v4l2", options=options)
-            microphone = MediaPlayer("default", format="alsa")
+        if platform.system() == 'Darwin':
+            webcam = MediaPlayer(None, format='avfoundation', options=options)
+            microphone = MediaPlayer(":1", format="avfoundation")  # Usar el índice ":1" para el micrófono en macOS
+        elif platform.system() == 'Linux':
+            webcam = MediaPlayer('/dev/video0', format='v4l2', options=options)
+            microphone = MediaPlayer('default', format='alsa')  # Usar 'default' para el micrófono en Linux
+        elif platform.system() == 'Windows':
+            webcam = MediaPlayer('video=Integrated Camera', format='dshow', options=options)
+            microphone = MediaPlayer('audio=Microphone (Realtek High Definition Audio)', format='dshow')  # Usar el nombre adecuado del micrófono en Windows
         relay = MediaRelay()
     return relay.subscribe(microphone.audio), relay.subscribe(webcam.video)
+
 
 async def index(request):
     content = open(os.path.join(ROOT, "index.html"), "r").read()
