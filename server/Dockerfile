@@ -20,8 +20,10 @@ RUN apt-get update && apt-get install -y \
     libavutil-dev \
     libsrtp2-dev \
     libffi-dev \
+    portaudio19-dev \
     && rm -rf /var/lib/apt/lists/* \
-    && pip install --no-cache-dir -r requirements.txt
+    && pip install --no-cache-dir -r requirements.txt \
+    && pip install --no-cache-dir sounddevice numpy
 
 # Copy the current directory contents into the container at /app
 COPY . /app
