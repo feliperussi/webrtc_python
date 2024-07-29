@@ -1,40 +1,90 @@
 import argparse
 import asyncio
-import json
 import os
 import platform
 import ssl
 import logging
-
+import numpy as np
 from aiohttp import web
 import aiohttp_cors
-
 from aiortc import RTCPeerConnection, RTCSessionDescription
 from aiortc.contrib.media import MediaPlayer, MediaRelay
+from fractions import Fraction
+import sounddevice as sd
+from aiortc import MediaStreamTrack
+import av
 
 ROOT = os.path.dirname(__file__)
 relay = None
 webcam = None
 microphone = None
 
+
+class MicrophoneStream(MediaStreamTrack):
+    kind = "audio"
+
+    def __init__(self):
+        super().__init__()  # Don't forget this!
+        self.samplerate = 44100
+        self.channels = 1
+        self.stream = self._open_stream()
+        self._timestamp = 0
+        self._time_base = Fraction(1, self.samplerate)
+
+    def _open_stream(self):
+        return sd.InputStream(samplerate=self.samplerate, channels=self.channels, dtype='int16')
+
+    async def recv(self):
+        try:
+            data, overflowed = self.stream.read(1024)
+            samples = np.frombuffer(data, dtype=np.int16)
+            samples = samples.reshape((1, -1))
+            frame = av.AudioFrame.from_ndarray(samples, format='s16', layout='mono')
+            frame.sample_rate = self.samplerate
+            frame.time_base = self._time_base
+            frame.pts = self._timestamp
+            self._timestamp += frame.samples
+            return frame
+        except sd.PortAudioError as e:
+            logging.exception("Error reading audio stream, restarting stream")
+            self.stream.close()
+            self.stream = self._open_stream()
+            self.stream.start()
+            samples = np.zeros((1, 1024), dtype=np.int16)
+            frame = av.AudioFrame.from_ndarray(samples, format='s16', layout='mono')
+            frame.sample_rate = self.samplerate
+            frame.time_base = self._time_base
+            frame.pts = self._timestamp
+            self._timestamp += frame.samples
+            return frame
+
+    def stop(self):
+        self.stream.stop()
+        self.stream.close()
+
+    def stop(self):
+        self.stream.stop()
+        self.stream.close()
+
+
 def create_local_tracks():
-    global relay, webcam
+    global relay, webcam, microphone
 
     options = {'framerate': '30', 'video_size': '640x480', 'pixel_format': 'uyvy422'}
     if relay is None:
         if platform.system() == 'Darwin':
             webcam = MediaPlayer(None, format='avfoundation', options=options)
-            microphone = MediaPlayer(":1", format="avfoundation")  # Usar el índice ":1" para el micrófono en macOS
+            microphone = MediaPlayer(":1", format="avfoundation")
         elif platform.system() == 'Linux':
-            webcam = MediaPlayer('/dev/video0', format='v4l2', options=options)
-            microphone = MediaPlayer('default', format='alsa')  # Usar 'default' para el micrófono en Linux
+            webcam = MediaPlayer('/dev/video4', format='v4l2', options=options)
+            microphone = MicrophoneStream() 
         elif platform.system() == 'Windows':
             webcam = MediaPlayer('video=Integrated Camera', format='dshow', options=options)
-            microphone = MediaPlayer('audio=Microphone (Realtek High Definition Audio)', format='dshow')  # Usar el nombre adecuado del micrófono en Windows
+            microphone = MediaPlayer('audio=Microphone (Realtek Audio)', format='dshow') 
         relay = MediaRelay()
-    return relay.subscribe(microphone.audio), relay.subscribe(webcam.video)
-
-
+    
+    return microphone, relay.subscribe(webcam.video)
+    
 async def index(request):
     content = open(os.path.join(ROOT, "index.html"), "r").read()
     return web.Response(content_type="text/html", text=content)
@@ -60,6 +110,9 @@ async def offer(request):
                 pcs.discard(pc)
 
         audio, video = create_local_tracks()
+
+        if audio is None or video is None:
+            raise Exception("Error creating local tracks")
 
         await pc.setRemoteDescription(offer)
         for t in pc.getTransceivers():
